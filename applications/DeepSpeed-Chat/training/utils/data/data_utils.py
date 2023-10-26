@@ -70,10 +70,7 @@ def get_raw_dataset(dataset_name, output_path, seed, local_rank):
                          os.path.pardir, os.path.pardir))
         print("chat_path:")
         print(chat_path)
-        '''
-        chat_path = "/vc_data/users/wuning/GenSERP/DeepSpeedExamples/applications/DeepSpeed-Chat"
-        '''
-        chat_path = "/llm_vert/applications/DeepSpeed-Chat"
+        chat_path = "/llm_hallucination/applications/DeepSpeed-Chat"
         if not (os.path.isfile(chat_path + '/data/train.json')
                 and os.path.isfile(chat_path + '/data/eval.json')):
             raise RuntimeError(
