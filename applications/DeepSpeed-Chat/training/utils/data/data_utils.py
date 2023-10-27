@@ -65,6 +65,7 @@ def get_raw_dataset(dataset_name, output_path, seed, local_rank):
         return raw_datasets.LmqgQagjaquadDataset(output_path, seed, local_rank,
                                                  dataset_name)
     elif "local/jsonfile" in dataset_name:
+        # find the parent of parent pf parent of data_utils.py and find tha absolute path
         chat_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), os.path.pardir,
                          os.path.pardir, os.path.pardir))
@@ -76,6 +77,7 @@ def get_raw_dataset(dataset_name, output_path, seed, local_rank):
             raise RuntimeError(
                 f"Please check both the train.json and eval.json files in your applications/DeepSpeed-Chat/data directory."
             )
+        # the output path is not used here
         return raw_datasets.LocalJsonFileDataset(output_path, seed, local_rank,
                                                  dataset_name, chat_path)
     else:
@@ -100,13 +102,14 @@ def get_raw_dataset_split_index(local_rank, output_path, dataset_name, seed,
     index_file_name = f"{output_path}/{dataset_name}_seed{seed}_{split_name}_{data_split}_{split_index}.npy"
     # reindex each time when using local jsonfile since it's more likely to get modified
     if (not os.path.isfile(index_file_name)) or (dataset_name == 'jsonfile'):
-        splits = [float(s) for s in data_split.split(',')]
+        splits = [float(s) for s in data_split.split(',')] # 9, 1, 1
         splits_sum = sum(splits)
         splits = [split / splits_sum for split in splits]
         splits_index = [0]
         for index, split in enumerate(splits):
             splits_index.append(splits_index[index] +
                                 int(round(split * float(data_size))))
+        # check the sanity of the data 
         diff = splits_index[-1] - data_size
         for index in range(1, len(splits_index)):
             splits_index[index] -= diff
@@ -120,6 +123,7 @@ def get_raw_dataset_split_index(local_rank, output_path, dataset_name, seed,
             np.save(shuffle_idx_split_file_name,
                     shuffle_idx_split,
                     allow_pickle=True)
+    # the return data is with split_index = 0 which means that the part of train is returned
     index = np.load(index_file_name, allow_pickle=True)
     return index.tolist()
 
@@ -161,15 +165,16 @@ def create_dataset_split(current_dataset, raw_dataset, train_phase, tokenizer,
     prompt_dataset = []
     chosen_dataset = []
     reject_dataset = []
+    # currently use train_phase == 1
     if train_phase == 1:
         for i, tmp_data in enumerate(current_dataset):
-            # tokenize the text
+            # tokenize the text, get prompt and chosen, prompt is instruction and chosen is input
             chosen_sentence = raw_dataset.get_prompt_and_chosen(
                 tmp_data)  # the accept response
             if chosen_sentence is not None:
-                chosen_sentence += end_of_conversation_token
+                chosen_sentence += end_of_conversation_token # end_of_conversation_token = "<|endoftext|>"
                 chosen_token = tokenizer(chosen_sentence,
-                                         max_length=max_seq_len,
+                                         max_length=max_seq_len, #256
                                          padding="max_length",
                                          truncation=True,
                                          return_tensors="pt")
@@ -179,6 +184,7 @@ def create_dataset_split(current_dataset, raw_dataset, train_phase, tokenizer,
 
                 print("real chosen input length:")
                 print(chosen_token_2["input_ids"].shape)
+                # the size is usually (1, x), remove this 1 using squeeze
                 chosen_token["input_ids"] = chosen_token["input_ids"].squeeze(
                     0)
                 chosen_token["attention_mask"] = chosen_token[
@@ -240,12 +246,15 @@ def create_dataset(local_rank, dataset_name, data_split, output_path,
                    max_seq_len):
     raw_dataset = get_raw_dataset(dataset_name, output_path, seed, local_rank)
     train_dataset = raw_dataset.get_train_data()
+    # get the indexes for training dataset of train.json,
     train_index = get_raw_dataset_split_index(local_rank, output_path,
                                               raw_dataset.dataset_name_clean,
                                               seed, "train", data_split,
                                               train_phase - 1,
                                               len(train_dataset))
+    # get training data for train split
     train_dataset = Subset(train_dataset, train_index)
+    # now return dict with three key: input_ids, attention_mask, and labels(labels are the same with input_ids)
     train_dataset = create_dataset_split(train_dataset, raw_dataset,
                                          train_phase, tokenizer,
                                          end_of_conversation_token,
@@ -294,6 +303,7 @@ def create_prompt_dataset(local_rank,
     torch.distributed.all_reduce(buf_create_cache)
 
     if local_rank <= 0 and (buf_create_cache.item() != 0 or reload):
+        # can be multiple strings
         if len(data_path) == 1:  # Single dataset.
             train_dataset, eval_dataset = create_dataset(
                 local_rank, data_path[0], data_split, output_path, train_phase,
@@ -353,6 +363,7 @@ def create_prompt_dataset(local_rank,
                 eval_dataset = Subset(eval_dataset, shuffle_idx.tolist())
         torch.save(train_dataset, train_fname)
         torch.save(eval_dataset, eval_fname)
+    # It acts as a barrier that blocks the execution of a process until all other processes have also reached the barrier.
     torch.distributed.barrier()
     return torch.load(train_fname), torch.load(eval_fname)
 

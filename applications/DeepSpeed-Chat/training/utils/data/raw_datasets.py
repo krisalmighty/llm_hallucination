@@ -347,8 +347,11 @@ class LocalJsonFileDataset(PromptRawDataset):
 
     def __init__(self, output_path, seed, local_rank, dataset_name, chat_path):
         super().__init__(output_path, seed, local_rank, dataset_name)
-        self.dataset_name = "local/jsonfile"
-        self.dataset_name_clean = "jsonfile"
+        self.dataset_name = "local/jsonfile" # not used here
+        self.dataset_name_clean = "jsonfile"  # not used here
+        # ading a dataset using the load_dataset function from the Hugging Face Datasets library.
+        #  It loads a dataset in JSON format. The dataset is being loaded and assigned to the self.
+        # raw_datasets attribute of an object (likely a Python class).
         self.raw_datasets = load_dataset('json',
                                          data_files={
                                              "train":
@@ -408,6 +411,7 @@ class Wangrui6ZhihuKOLDataset(PromptRawDataset):
     def get_train_data(self):
         from .data_utils import get_raw_dataset_split_index
         dataset = self.raw_datasets["train"]
+        
         index = get_raw_dataset_split_index(self.local_rank, self.output_path,
                                             self.dataset_name_clean,
                                             self.seed, "train_eval", "9,1", 0,

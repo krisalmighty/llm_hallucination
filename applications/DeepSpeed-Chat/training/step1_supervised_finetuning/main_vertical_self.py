@@ -970,7 +970,7 @@ def main():
     torch.distributed.barrier()
 
     # load_hf_tokenizer will get the correct tokenizer and set padding tokens based on the model family
-    tokenizer = load_hf_tokenizer(args.model_name_or_path, fast_tokenizer=True)
+    tokenizer = load_hf_tokenizer(args.model_name_or_path, fast_tokenizer=True) # specific huggingface model
     if args.contrastive_train:
         model = create_hf_model(LlamaForCausalLMVertSelfCTSA,
                             args.model_name_or_path,
