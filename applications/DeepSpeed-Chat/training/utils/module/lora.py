@@ -84,8 +84,11 @@ class LinearLayer_LoRA(nn.Module):
                 self.bias) + (self.lora_dropout(input) @ self.lora_right_weight
                               @ self.lora_left_weight) * self.lora_scaling
 
-
+# 这个函数 convert_linear_layer_to_lora 是用来将模型中的线性层转换为 LoRA 层的。
+# 在训练深度学习模型时，这种方法能够在保持预训练模型参数不变的同时，通过添加额外的参数来微调模型。
 # convert the linear layer to LoRA
+
+# convert the LoRA layer to linear layer
 def convert_linear_layer_to_lora(model,
                                  part_module_name,
                                  lora_dim=0,
@@ -110,7 +113,10 @@ def _z3_params_to_fetch(param_list):
         if hasattr(p, 'ds_id') and p.ds_status == deepspeed.runtime.zero.
         partition_parameters.ZeroParamStatus.NOT_AVAILABLE
     ]
-
+# convert the linear layer to LoRA
+# 这个函数 convert_lora_to_linear_layer 是用来将模型中的 LoRA 层转换回线性层的。
+# 在训练深度学习模型时，这个操作可以用于在训练完 LoRA 层后，将模型恢复到原始的状态，
+# 以便进行下一步的操作，如模型的保存、加载等。
 
 # convert the LoRA layer to linear layer
 def convert_lora_to_linear_layer(model):

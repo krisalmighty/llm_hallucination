@@ -83,7 +83,7 @@ def parse_args():
 def generate(model,
              tokenizer,
              inputs,
-             num_beams=1,
+             num_beams=1,# for fair comparison
              num_beam_groups=1,
              do_sample=False,
              num_return_sequences=1,

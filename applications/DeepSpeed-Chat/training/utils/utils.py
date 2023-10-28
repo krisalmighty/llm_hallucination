@@ -12,11 +12,14 @@ import deepspeed
 from deepspeed.runtime.zero.partition_parameters import ZeroParamStatus
 import torch.nn as nn
 
-
+# 在rank0也就是master rank打印信息，防止每个机器或GPU都打印消息造成大量重复信息
 def print_rank_0(msg, rank=0):
     if rank <= 0:
         print(msg)
-
+# 这个函数的作用是把一个数据批次移动到指定的设备上。在PyTorch中，数据默认是在CPU上的，
+# 如果要在GPU上进行运算，就需要先把数据移到GPU上。这个函数通过遍历批次中的所有元素并
+# 调用to(device)方法来实现这一点。如果某个元素不能被移到指定的设备上
+#（例如，这个元素是一个字符串或者其他不能在GPU上使用的类型），那么就直接保留这个元素，不进行任何操作。
 
 def to_device(batch, device):
     output = {}
@@ -77,9 +80,13 @@ def load_hf_tokenizer(model_name_or_path, fast_tokenizer=True):
 
     return tokenizer
 
+# 这段代码的功能是将训练好的模型以Hugging Face格式保存，这样之后就可以使用Hugging Face库的from_pretrained方法加载了。
 
 def save_hf_format(model, tokenizer, args, sub_folder=""):
-    # used to save huggingface format, so we can use it for hf.from_pretrained
+     # used to save huggingface format, so we can use it for hf.from_pretrained
+    # 首先，这行代码检查模型是否有'module'这个属性。这在PyTorch中是一个常见的模式，
+    # 当模型被封装在torch.nn.DataParallel或torch.nn.parallel.DistributedDataParallel时，
+    # 模型的所有属性都会被存储在'module'属性中。所以这行代码的目的是确保我们总是在原始模型上进行操作，而不是并行化的包装器。
     model_to_save = model.module if hasattr(model, 'module') else model
     CONFIG_NAME = "config.json"
     WEIGHTS_NAME = "pytorch_model.bin"
@@ -88,26 +95,36 @@ def save_hf_format(model, tokenizer, args, sub_folder=""):
     output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
     output_config_file = os.path.join(output_dir, CONFIG_NAME)
     save_dict = model_to_save.state_dict()
+    # "lora"可能是某种特定的模型组件或参数，这里将其排除在保存的模型权重之外。
     for key in list(save_dict.keys()):
         if "lora" in key:
             del save_dict[key]
     torch.save(save_dict, output_model_file)
     model_to_save.config.to_json_file(output_config_file)
     tokenizer.save_vocabulary(output_dir)
-
-
 def set_random_seed(seed):
-    if seed is not None:
-        set_seed(seed)
-        random.seed(seed)
-        np.random.seed(seed)
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
+    # 首先检查种子是否是None。如果是None，那么就跳过这段代码，随机数生成器将会用一个随机的种子。
+    if seed is not None: 
+        set_seed(seed)# 这一行调用transformers库的set_seed的函数，将种子设定为指定的值。
+        random.seed(seed) # 将Python内置的随机数生成器的种子设定为指定的值。
+        np.random.seed(seed) # 将NumPy的随机数生成器的种子设定为指定的值。
+        torch.manual_seed(seed) # 将PyTorch的随机数生成器的种子设定为指定的值。
+        torch.cuda.manual_seed_all(seed) # 将PyTorch的所有GPU随机数生成器的种子设定为指定的值
 
 
+
+# 这段代码是在分布式训练环境中进行平均值计算的函数，通过这段代码，
+# 所有的处理器（或者叫节点）上的同一个tensor都会被加和起来，然后除以总的处理器数，得到平均值。
 def get_all_reduce_mean(tensor):
+    # 这行代码执行一个分布式的reduce操作。reduce操作是指所有处理器中的同一个tensor都被某种方式结合起来。
+    # 在这个例子中，torch.distributed.ReduceOp.SUM表示所有处理器上的tensor将被加和起来。
+    # 加和的结果会在所有处理器上都可用。
     torch.distributed.all_reduce(tensor, op=torch.distributed.ReduceOp.SUM)
+    # 这行代码将前一步得到的加和结果除以处理器的数量（也叫作 world size）。
+    # 这样，tensor就变成了所有处理器上原始tensor的平均值。
     tensor = tensor / torch.distributed.get_world_size()
+    # 最后，这个平均值tensor被返回。在所有处理器上，这个函数返回的tensor都是相同的，
+    # 等于所有处理器上原始tensor的平均值。
     return tensor
 
 
@@ -166,7 +183,8 @@ def load_state_dict_into_model(model_to_load=None,
     del state_dict
 
     return error_msgs
-
+# 这段代码的作用是将模型中的参数分组以便于在优化器中使用。它将模型参数分为两组：
+# 一组需要进行权重衰减（L2正则化）的参数，另一组不需要进行权重衰减的参数。
 
 def get_optimizer_grouped_parameters(
     model,
@@ -175,7 +193,10 @@ def get_optimizer_grouped_parameters(
     no_decay_name_list=["bias", "LayerNorm.weight"],
     lora_name_list=["lora_right_weight", "lora_left_weight"],
 ):
+    # 它定义了一个列表 optimizer_grouped_parameters，其中包含两个字典。每个字典都对应一个参数组，包含 "params" 和 "weight_decay" 这两个关键字。
     optimizer_grouped_parameters = [
+        # 在第一个字典中，它从模型参数中选出那些名称不包含 "bias" 或 "LayerNorm.weight" 
+        # 且需要求梯度的参数。这些参数在优化过程中会应用 weight_decay 作为权重衰减项。
         {
             "params": [
                 p for n, p in model.named_parameters()
@@ -198,6 +219,8 @@ def get_optimizer_grouped_parameters(
             "lr":
             lora_lr
         },
+        # 在第二个字典中，它选出那些名称包含 "bias" 或 "LayerNorm.weight" 且需要求梯度的参数。
+        # 这些参数在优化过程中不会应用权重衰减，即其 "weight_decay" 值为0。
         {
             "params": [
                 p for n, p in model.named_parameters()

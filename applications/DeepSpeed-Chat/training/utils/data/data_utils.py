@@ -165,12 +165,18 @@ def create_dataset_split(current_dataset, raw_dataset, train_phase, tokenizer,
     prompt_dataset = []
     chosen_dataset = []
     reject_dataset = []
-    # currently use train_phase == 1
+    # currently use train_phase == 1 SFT
+    # 如果训练阶段为1，则将接受的对话进行分词并添加到chosen_dataset中。
     if train_phase == 1:
         for i, tmp_data in enumerate(current_dataset):
+            # 遍历当前数据集。
             # tokenize the text, get prompt and chosen, prompt is instruction and chosen is input
+            # 从原始数据集中获取对话提示和接受的对话。
             chosen_sentence = raw_dataset.get_prompt_and_chosen(
                 tmp_data)  # the accept response
+            # tokenize the text
+            
+             # 如果接受的对话不为空，则将其分词并添加到chosen_dataset中。
             if chosen_sentence is not None:
                 chosen_sentence += end_of_conversation_token # end_of_conversation_token = "<|endoftext|>"
                 chosen_token = tokenizer(chosen_sentence,
@@ -190,7 +196,7 @@ def create_dataset_split(current_dataset, raw_dataset, train_phase, tokenizer,
                 chosen_token["attention_mask"] = chosen_token[
                     "attention_mask"].squeeze(0)
                 chosen_dataset.append(chosen_token)
-
+    # reward modeling 如果训练阶段为2，则将接受和被拒绝的对话都进行分词并分别添加到chosen_dataset和reject_dataset中。
     elif train_phase == 2:
         for i, tmp_data in enumerate(current_dataset):
             # tokenize the text
@@ -218,7 +224,7 @@ def create_dataset_split(current_dataset, raw_dataset, train_phase, tokenizer,
                 reject_token["input_ids"] = reject_token["input_ids"]
                 reject_token["attention_mask"] = reject_token["attention_mask"]
                 reject_dataset.append(reject_token)
-
+    # RLHF 如果训练阶段为3，则将对话提示进行分词并添加到prompt_dataset中。
     elif train_phase == 3:
         for i, tmp_data in enumerate(current_dataset):
             # tokenize the text

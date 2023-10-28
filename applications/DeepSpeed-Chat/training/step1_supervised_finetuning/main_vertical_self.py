@@ -643,7 +643,7 @@ class LlamaForCausalLMVertSelfA_BK(LlamaForCausalLM):
 class LlamaForCausalLMVertA(LlamaForCausalLM):
     def __init__(self, config):
         super().__init__(config)
-
+    # class LlamaForCausalLM(LlamaPreTrainedModel):
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -704,13 +704,17 @@ class LlamaForCausalLMVertA(LlamaForCausalLM):
 #        print(outputs[0].shape)
 #        print(outputs[1].shape)
 #        print(outputs[2].shape)
+#       class BaseModelOutputWithPast(ModelOutput):
+#       Sequence of hidden-states at the output of the last layer of the model.
         q = outputs["last_hidden_state"]
         D = q.shape[-1]
+        # Hidden-states of the model at the output of each layer plus the optional initial embedding outputs
         kv = torch.cat([item.unsqueeze(2) for item in outputs["hidden_states"][:]], 2)
 #        print("kv shape:", kv.shape)
 #        print("q shape:", q.shape)
-        # B * L * D
-        # B * L * K * D -> B * L * D * K
+#       k  = 32 here
+        # q: B * L * D
+        # kv: B * L * K * D -> B * L * D * K
         # B * L * K
         # Compute the dot product of q and kv.transpose(-1, -2)
         # and scale it by 1 / sqrt(D)
@@ -721,6 +725,7 @@ class LlamaForCausalLMVertA(LlamaForCausalLM):
 
         # Apply softmax along the last dimension to get the attention weights
         attn_weights = torch.softmax(scores, dim=-1)
+        # add dropout !!!!
 #        print("attn_weights:")
 #        print(attn_weights)
         # Multiply the attention weights with kv to get the output
@@ -778,6 +783,11 @@ def parse_args():
                         help='Path to the training dataset. Accepted format:'
                         '1) a single data path, 2) multiple datasets in the'
                         'form: dataset1-path dataset2-path ...')
+    '''
+    根据InstructGPT，我们提供了切分数据集的能力，使得每个分区只在一个步骤中使用。设置为"2,4,4"
+    意味着我们分别使用20%，40%，40%的数据在每个步骤中。如果你只做SFT，或者你发现在不同步骤中使用重叠数据是可以的/有帮助的，
+    你可以将它改为"10,0,0"。
+    '''
     parser.add_argument('--data_split',
                         type=str,
                         default='9,1,1',
@@ -960,6 +970,8 @@ def main():
                                     tb_name="step1_model")
     ds_config[
         'train_micro_batch_size_per_gpu'] = args.per_device_train_batch_size
+    # distributed.get_world_size() Returns the number of processes in the current process group
+    # accumulating gradients over several batches, and only stepping the optimizer after a certain number of batches have been performed.
     ds_config[
         'train_batch_size'] = args.per_device_train_batch_size * torch.distributed.get_world_size(
         ) * args.gradient_accumulation_steps
@@ -998,7 +1010,7 @@ def main():
                             disable_dropout=args.disable_dropout)
 
 
-
+    # 如果参数lora_dim大于0，将模型的线性层转换为LoRa层；如果只优化LoRa参数，关闭其他参数的梯度。
     if args.lora_dim > 0:
         model = convert_linear_layer_to_lora(model, args.lora_module_name,
                                              args.lora_dim)
@@ -1035,6 +1047,7 @@ def main():
                                  batch_size=args.per_device_eval_batch_size)
 
     def evaluation(model, eval_dataloader):
+        # generally speaking, the lower of perplexity, the better of the model
         model.eval()
         losses = 0
         for step, batch in enumerate(eval_dataloader):
@@ -1050,13 +1063,15 @@ def main():
             perplexity = torch.exp(losses)
         except OverflowError:
             perplexity = float("inf")
+        # aggregate the results in all devices
         try:
             perplexity = get_all_reduce_mean(perplexity).item()
         except:
             pass
         return perplexity
 
-    # Split weights in two groups, one with weight decay and the other not.
+    # Split weights in three groups, one with weight decay. no lora and one with weight decay and lora, one without weight decay and no lora
+    #here weight decay 0, lora_learning_ratre 5e-4
     optimizer_grouped_parameters = get_optimizer_grouped_parameters(
         model, args.weight_decay, args.lora_learning_rate)
 
@@ -1070,10 +1085,11 @@ def main():
     lr_scheduler = get_scheduler(
         name=args.lr_scheduler_type,
         optimizer=optimizer,
+        # linearly increase the learning rate from a low rate to a constant rate thereafter
         num_warmup_steps=args.num_warmup_steps,
         num_training_steps=args.num_train_epochs * num_update_steps_per_epoch,
     )
-
+    # the code before hasn't used deepspeed!!!!! the model below will automatically call the deepspeed
     model, optimizer, _, lr_scheduler = deepspeed.initialize(
         model=model,
         optimizer=optimizer,
@@ -1133,13 +1149,15 @@ def main():
 
     if args.output_dir is not None:
         print_rank_0('saving the final model ...', args.global_rank)
+        # 将模型中的LoRA层转换为线性层。
         model = convert_lora_to_linear_layer(model)
-
+        # 以Hugging Face的模型格式保存模型。
         if args.global_rank == 0:
             save_hf_format(model, tokenizer, args)
 
         if args.zero_stage == 3:
             # For zero stage 3, each gpu only has a part of the model, so we need a special save function
+            # 使用特殊的保存函数保存模型。在Zero的第三阶段，每个GPU只有模型的一部分，所以需要特殊的保存函数。
             save_zero_three_model(model,
                                   args.global_rank,
                                   args.output_dir,
