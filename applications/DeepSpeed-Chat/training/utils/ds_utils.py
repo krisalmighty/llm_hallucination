@@ -59,7 +59,7 @@ def get_train_ds_config(offload,
         # fp16 is false means we use fp32, since we change a lot on model architecture, 
         # the representation of fp16 is [-256, 256], the representation of bf16 is [-65536, 65536]
         # if A100, use bf16, df16 is more useful for deep learning, we need more parameter value range.
-        "fp16": {
+        "bf16": {
             "enabled": False,
             "loss_scale_window": 100
         },
