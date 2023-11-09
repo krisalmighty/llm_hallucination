@@ -60,7 +60,7 @@ def get_train_ds_config(offload,
         # the representation of fp16 is [-256, 256], the representation of bf16 is [-65536, 65536]
         # if A100, use bf16, df16 is more useful for deep learning, we need more parameter value range.
         "bf16": {
-            "enabled": False,
+            "enabled": True,
             "loss_scale_window": 100
         },
         "gradient_clipping": 1.0,
