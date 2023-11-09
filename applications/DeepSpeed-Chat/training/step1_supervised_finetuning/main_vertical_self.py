@@ -899,9 +899,17 @@ def parse_args():
 
     parser.add_argument('--cascade_train',
                         action='store_true',
-                        help='Enable contrastive_train.')
+                        help='Enable cascade_train.')
 
-
+    parser.add_argument('--attn_norm',
+                        action='store_true',
+                        help='Enable attention norm.')
+    parser.add_argument('--self_attn',
+                        action='store_true',
+                        help='Enable self attention')
+    parser.add_argument('--ori_model',
+                        action='store_true',
+                        help='Enable ori_model')
     parser.add_argument(
         '--zero_stage',
         type=int,
@@ -920,10 +928,7 @@ def parse_args():
                         action='store_true',
                         help='Only optimize the LoRA parameters.')
 
-    parser.add_argument('--attn_norm',
-                        action='store_true',
-                        help='Only optimize the LoRA parameters.')
-
+    
 
     parser.add_argument(
         "--lora_learning_rate",
@@ -1001,15 +1006,21 @@ def main():
                             tokenizer,
                             ds_config,
                             disable_dropout=args.disable_dropout)
-
-    else:
+        print("training using attention norm model")
+    elif args.self_attn:
         model = create_hf_model(LlamaForCausalLMVertSelfA,
                             args.model_name_or_path,
                             tokenizer,
                             ds_config,
                             disable_dropout=args.disable_dropout)
 
-
+    elif args.ori_model:
+        model = create_hf_model(AutoModelForCausalLM,
+                            args.model_name_or_path,
+                            tokenizer,
+                            ds_config,
+                            disable_dropout=args.disable_dropout)
+        print("training using original model")
     # 如果参数lora_dim大于0，将模型的线性层转换为LoRa层；如果只优化LoRa参数，关闭其他参数的梯度。
     if args.lora_dim > 0:
         model = convert_linear_layer_to_lora(model, args.lora_module_name,

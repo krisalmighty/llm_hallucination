@@ -71,7 +71,7 @@ def get_raw_dataset(dataset_name, output_path, seed, local_rank):
                          os.path.pardir, os.path.pardir))
         print("chat_path:")
         print(chat_path)
-        chat_path = "/llm_hallucination/applications/DeepSpeed-Chat"
+        chat_path = "/llm_math_reasoning/applications/DeepSpeed-Chat"
         if not (os.path.isfile(chat_path + '/data/train.json')
                 and os.path.isfile(chat_path + '/data/eval.json')):
             raise RuntimeError(
@@ -188,8 +188,8 @@ def create_dataset_split(current_dataset, raw_dataset, train_phase, tokenizer,
                 chosen_token_2 = tokenizer(chosen_sentence,
                                          return_tensors="pt")
 
-                print("real chosen input length:")
-                print(chosen_token_2["input_ids"].shape)
+                #print("real chosen input length:")
+                #print(chosen_token_2["input_ids"].shape)
                 # the size is usually (1, x), remove this 1 using squeeze
                 chosen_token["input_ids"] = chosen_token["input_ids"].squeeze(
                     0)
