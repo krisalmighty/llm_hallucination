@@ -218,7 +218,7 @@ def main():
 #    model_baseline = create_hf_model(AutoModelForCausalLM,
 #                                     args.model_name_or_path_baseline,
 #                                     tokenizer, None)
-    model_fintuned = create_hf_model(LlamaForCausalLM,
+    model_fintuned = create_hf_model(LlamaForCausalLMVertA,
                                      args.model_name_or_path_finetune,
                                      tokenizer, None)
 
