@@ -726,10 +726,11 @@ class LlamaForCausalLMVertA(LlamaForCausalLM):
         # Apply softmax along the last dimension to get the attention weights
         attn_weights = torch.softmax(scores, dim=-1)
         # add dropout !!!!
-#        print("attn_weights:")
-#        print(attn_weights)
+        print("attn_weights:")
+        print(attn_weights)
         # Multiply the attention weights with kv to get the output
         attn_output = torch.einsum("ijl,ijlk->ijk", attn_weights, kv)
+#        ori_hidden_states = outputs["hidden_states"]
 
         hidden_states = attn_output #+ q 
 
