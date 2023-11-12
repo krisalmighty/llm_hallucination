@@ -8,7 +8,7 @@ import torch
 import sys
 import os
 import json
-from main_vertical_self import LlamaForCausalLMVertA
+from models import LlamaForCausalLMVertA
 from transformers import (
     AutoModelForCausalLM, LlamaForCausalLM)
 import numpy as np
@@ -210,7 +210,7 @@ def prompt_eval(args, model_baseline, model_fintuned, tokenizer, device,
 def main():
     args = parse_args()
 
-    device = torch.device("cuda:0")
+    device = torch.device("cuda")
 
     tokenizer = load_hf_tokenizer(args.model_name_or_path_baseline,
                                   fast_tokenizer=True)
