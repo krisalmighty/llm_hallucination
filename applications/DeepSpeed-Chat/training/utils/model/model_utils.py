@@ -37,6 +37,7 @@ def create_hf_model(model_class,
     else:
         model = model_class.from_pretrained(
             model_name_or_path,
+            torch_dtype=torch.bfloat16,
             from_tf=bool(".ckpt" in model_name_or_path),
             config=model_config)
 

@@ -721,7 +721,7 @@ class LlamaForCausalLMVertA(LlamaForCausalLM):
         q_a = q / q.norm(dim=2, keepdim=True)
         kv_a = kv / kv.norm(dim=2, keepdim=True)
 
-        scores = torch.einsum("ijk,ijkl->ijl", q_a, kv_a.transpose(-1, -2)) / 0.1
+        scores = torch.einsum("ijk,ijkl->ijl", q_a, kv_a.transpose(-1, -2)) * 0.4
 
         # Apply softmax along the last dimension to get the attention weights
         attn_weights = torch.softmax(scores, dim=-1)
