@@ -59,8 +59,8 @@ def get_train_ds_config(offload,
         # fp16 is false means we use fp32, since we change a lot on model architecture, 
         # the representation of fp16 is [-256, 256], the representation of bf16 is [-65536, 65536]
         # if A100, use bf16, bf16 is more useful for deep learning, we need more parameter value range.
-        "fp16": {
-            "enabled": False,
+        "bf16": {
+            "enabled": True,
             "loss_scale_window": 100
         },
         "gradient_clipping": 1.0,
@@ -98,7 +98,7 @@ def get_eval_ds_config(offload, stage=0):
         "train_micro_batch_size_per_gpu": "auto",
         "steps_per_print": 10,
         "zero_optimization": zero_opt_dict,
-        "fp16": {
+        "bf16": {
             "enabled": True
         },
         "gradient_clipping": 1.0,
