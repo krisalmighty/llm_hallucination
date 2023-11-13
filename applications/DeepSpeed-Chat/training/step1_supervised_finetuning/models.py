@@ -1,5 +1,8 @@
+import torch
 from transformers import (
     AutoModelForCausalLM, LlamaForCausalLM)
+from typing import List, Optional, Tuple, Union
+from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast, SequenceClassifierOutputWithPast
 class LlamaForCausalLMVertSelfCTSA(LlamaForCausalLM):
     def __init__(self, config):
         super().__init__(config)
