@@ -14,8 +14,21 @@ from transformers.deepspeed import HfDeepSpeedConfig
 
 from .reward_model import RewardModel
 from ..utils import load_state_dict_into_model
+import GPUtil
+import logging
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+def log_gpu_memory_usage():
+    try:
+        # Get GPU info
+        gpus = GPUtil.getGPUs()
 
+        # Loop through each GPU
+        for i, gpu in enumerate(gpus):
+            logging.info(f"GPU {i} Memory Usage: {gpu.memoryUsed} MB / {gpu.memoryTotal} MB ({gpu.memoryUtil*100:.2f}% used)")
+    except Exception as e:
+        logging.error(f"Error getting GPU memory usage: {e}")
 def create_hf_model(model_class,
                     model_name_or_path,
                     tokenizer,
@@ -35,9 +48,11 @@ def create_hf_model(model_class,
         # the weight loading is handled by create critic model
         model = model_class.from_config(model_config)
     else:
+        log_gpu_memory_usage()
+        print("start load specific datatype model model")
         model = model_class.from_pretrained(
             model_name_or_path,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=torch.float16,
             from_tf=bool(".ckpt" in model_name_or_path),
             config=model_config)
 

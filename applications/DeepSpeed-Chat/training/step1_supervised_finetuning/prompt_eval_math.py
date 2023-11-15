@@ -26,7 +26,7 @@ def parse_args():
         "--model_name_or_path_baseline",
         type=str,
         help="Path to baseline model",
-        required=True,
+        required=False,
     )
     parser.add_argument(
         "--model_name_or_path_finetune",
@@ -209,21 +209,35 @@ def prompt_eval(args, model_baseline, model_fintuned, tokenizer, device,
 
 def main():
     args = parse_args()
+    def get_device():
+        # Check if CUDA (GPU support) is available
+        if torch.cuda.is_available():
+            # Choose the current available GPU
+            device = torch.device("cuda", torch.cuda.current_device())
+        else:
+            # Use CPU if no GPU is available
+            device = torch.device("cpu")
+    
+        return device
 
-    device = torch.device("cuda")
-
-    tokenizer = load_hf_tokenizer(args.model_name_or_path_baseline,
+    # Example usage
+    device = get_device()
+    #device = torch.device(f"cuda:{id_gpu}")
+    print(f"set device {device}")
+    print("begin to load tokenizer")
+    tokenizer = load_hf_tokenizer(args.model_name_or_path_finetune,
                                   fast_tokenizer=True)
-
+    print("load tokenizer  complete")
 #    model_baseline = create_hf_model(AutoModelForCausalLM,
 #                                     args.model_name_or_path_baseline,
 #                                     tokenizer, None)
     model_fintuned = create_hf_model(LlamaForCausalLMVertA,
                                      args.model_name_or_path_finetune,
                                      tokenizer, None)
-
+    print("load model complete")
 #    model_baseline.to(device)
     model_fintuned.to(device)
+    print("send model to device complete")
     model_baseline = None
     # One observation: if the prompt ends with a space " ", there is a high chance that
     # the original model (without finetuning) will stuck and produce no response.
